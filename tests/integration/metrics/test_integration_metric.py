@@ -40,13 +40,12 @@ MOCKED_API_PORT = 9182
 
 MonkeyPatchFixture = NewType("MonkeyPatchFixture", Any)
 system_variables: Dict = {
-    'DYNATRACE_URL': 'http://localhost:' + str(MOCKED_API_PORT),
+    'DYNATRACE_URL': f'http://localhost:{MOCKED_API_PORT}',
     'REQUIRE_VALID_CERTIFICATE': 'False',
     'ACTIVATION_CONFIG': "{services: [{service: gce_instance, featureSets: [default_metrics], vars: {filter_conditions: resource.labels.instance_name=starts_with(\"test\")}},\
                         {service: api, featureSets: [default_metrics], vars: {filter_conditions: ''}},\
                         {service: cloudsql_database, featureSets: [default_metrics], vars: {filter_conditions: ''}}]}",
-    'GCP_PROJECT': 'dynatrace-gcp-extension'
-    # 'DYNATRACE_ACCESS_KEY': ACCESS_KEY, this one is encoded in mocks files
+    'GCP_PROJECT': 'dynatrace-gcp-extension',
 }
 
 
@@ -84,7 +83,7 @@ def clean_journal():
 def setup_wiremock():
     # setup WireMock server
 
-    Config.base_url = 'http://localhost:{}/__admin'.format(MOCKED_API_PORT)
+    Config.base_url = f'http://localhost:{MOCKED_API_PORT}/__admin'
 
     wiremock = WireMockServer(port=MOCKED_API_PORT)
     wiremock.start()

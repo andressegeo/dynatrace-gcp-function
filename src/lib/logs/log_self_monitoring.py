@@ -73,8 +73,7 @@ async def create_sfm_worker_loop(sfm_queue: Queue, logging_context: LoggingConte
 
 async def _loop_single_period(self_monitoring: LogSelfMonitoring, sfm_queue: Queue, context: LoggingContext, instance_metadata: InstanceMetadata):
     try:
-        sfm_list = _pull_sfm(sfm_queue)
-        if sfm_list:
+        if sfm_list := _pull_sfm(sfm_queue):
             async with init_gcp_client_session() as gcp_session:
                 context = await _create_sfm_logs_context(sfm_queue, context, gcp_session, instance_metadata)
                 self_monitoring = aggregate_self_monitoring_metrics(self_monitoring, sfm_list)
@@ -167,7 +166,7 @@ def create_time_serie(
 
 
 def create_self_monitoring_time_series(sfm: LogSelfMonitoring, context: LogsSfmContext) -> Dict:
-    interval = {"endTime": context.timestamp.isoformat() + "Z"}
+    interval = {"endTime": f"{context.timestamp.isoformat()}Z"}
     time_series = []
     if sfm.all_requests:
         time_series.append(
@@ -244,50 +243,59 @@ def create_self_monitoring_time_series(sfm: LogSelfMonitoring, context: LogsSfmC
                     "value": {"int64Value": sfm.publish_time_fallback_records}
                 }]))
 
-    time_series.append(create_time_serie(
-            context,
-            LOG_SELF_MONITORING_PROCESSING_TIME_METRIC_TYPE,
-            {
-                "dynatrace_tenant_url": context.dynatrace_url,
-                "logs_subscription_id": context.logs_subscription_id,
-                "container_name": context.container_name
-            },
-            [{
-                "interval": interval,
-                "value": {"doubleValue": sfm.processing_time}
-            }],
-            "DOUBLE"))
-
-    time_series.append(create_time_serie(
-            context,
-            LOG_SELF_MONITORING_SENDING_TIME_SIZE_METRIC_TYPE,
-            {
-                "dynatrace_tenant_url": context.dynatrace_url,
-                "logs_subscription_id": context.logs_subscription_id,
-                "container_name": context.container_name
-            },
-            [{
-                "interval": interval,
-                "value": {"doubleValue": sfm.sending_time}
-            }],
-            "DOUBLE"))
+    time_series.extend(
+        (
+            create_time_serie(
+                context,
+                LOG_SELF_MONITORING_PROCESSING_TIME_METRIC_TYPE,
+                {
+                    "dynatrace_tenant_url": context.dynatrace_url,
+                    "logs_subscription_id": context.logs_subscription_id,
+                    "container_name": context.container_name,
+                },
+                [
+                    {
+                        "interval": interval,
+                        "value": {"doubleValue": sfm.processing_time},
+                    }
+                ],
+                "DOUBLE",
+            ),
+            create_time_serie(
+                context,
+                LOG_SELF_MONITORING_SENDING_TIME_SIZE_METRIC_TYPE,
+                {
+                    "dynatrace_tenant_url": context.dynatrace_url,
+                    "logs_subscription_id": context.logs_subscription_id,
+                    "container_name": context.container_name,
+                },
+                [
+                    {
+                        "interval": interval,
+                        "value": {"doubleValue": sfm.sending_time},
+                    }
+                ],
+                "DOUBLE",
+            ),
+        )
+    )
 
     connectivity_counter = Counter(sfm.dynatrace_connectivity)
-    for dynatrace_connectivity, counter in connectivity_counter.items():
-        if dynatrace_connectivity.name != DynatraceConnectivity.Ok.name:
-            time_series.append(create_time_serie(
-                    context,
-                    LOG_SELF_MONITORING_CONNECTIVITY_METRIC_TYPE,
-                    {
-                        "dynatrace_tenant_url": context.dynatrace_url,
-                        "logs_subscription_id": context.logs_subscription_id,
-                        "container_name": context.container_name,
-                        "connectivity_status": dynatrace_connectivity.name
-                    },
-                    [{
-                        "interval": interval,
-                        "value": {"int64Value": counter}
-                    }]))
+    time_series.extend(
+        create_time_serie(
+            context,
+            LOG_SELF_MONITORING_CONNECTIVITY_METRIC_TYPE,
+            {
+                "dynatrace_tenant_url": context.dynatrace_url,
+                "logs_subscription_id": context.logs_subscription_id,
+                "container_name": context.container_name,
+                "connectivity_status": dynatrace_connectivity.name,
+            },
+            [{"interval": interval, "value": {"int64Value": counter}}],
+        )
+        for dynatrace_connectivity, counter in connectivity_counter.items()
+        if dynatrace_connectivity.name != DynatraceConnectivity.Ok.name
+    )
 
     if sfm.log_ingest_payload_size:
         time_series.append(create_time_serie(

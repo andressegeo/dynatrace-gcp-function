@@ -42,7 +42,7 @@ async def push_self_monitoring(context: MetricsContext):
 
 async def push_self_monitoring_time_series(context: SfmContext, time_series: Dict):
     try:
-        context.log(f"Pushing self monitoring time series to GCP Monitor...")
+        context.log("Pushing self monitoring time series to GCP Monitor...")
         await create_metric_descriptors_if_missing(context)
         for single_series in batch_time_series(time_series):
             await push_single_self_monitoring_time_series(context, False, single_series)
@@ -53,7 +53,7 @@ async def push_self_monitoring_time_series(context: SfmContext, time_series: Dic
 def batch_time_series(time_series: Dict) -> List[Dict]:
     time_series_data = time_series.get("timeSeries", [])
     if len(time_series_data) > 200:
-        return list([{"timeSeries": chunk} for chunk in chunks(time_series_data, 200)])
+        return [{"timeSeries": chunk} for chunk in chunks(time_series_data, 200)]
     else:
         return [time_series]
 
@@ -76,7 +76,7 @@ async def push_single_self_monitoring_time_series(context: SfmContext, is_retry:
         context.log(
             f"Failed to push self monitoring time series, error is: {status} => {self_monitoring_response_json}")
     else:
-        context.log(f"Finished pushing self monitoring time series to GCP Monitor")
+        context.log("Finished pushing self monitoring time series to GCP Monitor")
     self_monitoring_response.close()
 
 
@@ -91,8 +91,9 @@ async def create_metric_descriptors_if_missing(context: SfmContext):
         dynatrace_metrics_descriptors_json = await dynatrace_metrics_descriptors.json()
         existing_metric_types = {metric.get("type", ""): metric for metric in dynatrace_metrics_descriptors_json.get("metricDescriptors", [])}
         for metric_type, metric_descriptor in context.sfm_metric_map.items():
-            existing_metric_descriptor = existing_metric_types.get(metric_type, None)
-            if existing_metric_descriptor:
+            if existing_metric_descriptor := existing_metric_types.get(
+                metric_type, None
+            ):
                 await replace_metric_descriptor_if_required(context,
                                                             existing_metric_descriptor,
                                                             metric_descriptor,
@@ -172,7 +173,7 @@ def create_time_serie(
 
 
 def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
-    interval = {"endTime": context.execution_time.isoformat() + "Z"}
+    interval = {"endTime": f"{context.execution_time.isoformat()}Z"}
     time_series = [
         create_time_serie(
             context,
@@ -188,8 +189,8 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
             }])
     ]
 
-    for project_id, count in context.dynatrace_ingest_lines_ok_count.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_INGEST_LINES_METRIC_TYPE,
             {
@@ -198,13 +199,13 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "status": "Ok",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"int64Value": count}
-            }]))
+            [{"interval": interval, "value": {"int64Value": count}}],
+        )
+        for project_id, count in context.dynatrace_ingest_lines_ok_count.items()
+    )
 
-    for project_id, count in context.dynatrace_ingest_lines_invalid_count.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_INGEST_LINES_METRIC_TYPE,
             {
@@ -213,13 +214,13 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "status": "Invalid",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"int64Value": count}
-            }]))
+            [{"interval": interval, "value": {"int64Value": count}}],
+        )
+        for project_id, count in context.dynatrace_ingest_lines_invalid_count.items()
+    )
 
-    for project_id, count in context.dynatrace_ingest_lines_dropped_count.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_INGEST_LINES_METRIC_TYPE,
             {
@@ -228,13 +229,13 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "status": "Dropped",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"int64Value": count}
-            }]))
+            [{"interval": interval, "value": {"int64Value": count}}],
+        )
+        for project_id, count in context.dynatrace_ingest_lines_dropped_count.items()
+    )
 
-    for project_id, time in context.setup_execution_time.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_PHASE_EXECUTION_TIME_METRIC_TYPE,
             {
@@ -243,14 +244,14 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "phase": "setup",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"doubleValue": time}
-            }],
-            "DOUBLE"))
+            [{"interval": interval, "value": {"doubleValue": time}}],
+            "DOUBLE",
+        )
+        for project_id, time in context.setup_execution_time.items()
+    )
 
-    for project_id, time in context.fetch_gcp_data_execution_time.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_PHASE_EXECUTION_TIME_METRIC_TYPE,
             {
@@ -259,14 +260,14 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "phase": "fetch_gcp_data",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"doubleValue": time}
-            }],
-            "DOUBLE"))
+            [{"interval": interval, "value": {"doubleValue": time}}],
+            "DOUBLE",
+        )
+        for project_id, time in context.fetch_gcp_data_execution_time.items()
+    )
 
-    for project_id, time in context.push_to_dynatrace_execution_time.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_PHASE_EXECUTION_TIME_METRIC_TYPE,
             {
@@ -275,26 +276,25 @@ def create_self_monitoring_time_series(context: MetricsContext) -> Dict:
                 "phase": "push_to_dynatrace",
                 "project_id": project_id,
             },
-            [{
-                "interval": interval,
-                "value": {"doubleValue": time}
-            }],
-            "DOUBLE"))
+            [{"interval": interval, "value": {"doubleValue": time}}],
+            "DOUBLE",
+        )
+        for project_id, time in context.push_to_dynatrace_execution_time.items()
+    )
 
-    for status_code, count in context.dynatrace_request_count.items():
-        time_series.append(create_time_serie(
+    time_series.extend(
+        create_time_serie(
             context,
             SELF_MONITORING_REQUEST_COUNT_METRIC_TYPE,
             {
                 "response_code": str(status_code),
                 "function_name": context.function_name,
-                "dynatrace_tenant_url": context.dynatrace_url
+                "dynatrace_tenant_url": context.dynatrace_url,
             },
-            [{
-                "interval": interval,
-                "value": {"int64Value": count}
-            }]
-        ))
+            [{"interval": interval, "value": {"int64Value": count}}],
+        )
+        for status_code, count in context.dynatrace_request_count.items()
+    )
 
     return {"timeSeries": time_series}
 

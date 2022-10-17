@@ -40,8 +40,7 @@ def get_should_require_valid_certificate() -> bool:
 
 def get_query_interval_minutes() -> int:
     default_query_interval = 3
-    query_interval_env_var = os.environ.get('QUERY_INTERVAL_MIN', None)
-    if query_interval_env_var:
+    if query_interval_env_var := os.environ.get('QUERY_INTERVAL_MIN', None):
         query_interval_min = int(query_interval_env_var) if query_interval_env_var.isdigit() else default_query_interval
     else:
         # keep old query frequency for logs ingest or if cloud function code was updated without changing cloud scheduler (missing environment variable)
@@ -53,8 +52,11 @@ def get_query_interval_minutes() -> int:
 
 class LoggingContext:
     def __init__(self, scheduled_execution_id: Optional[str]):
-        self.scheduled_execution_id: str = scheduled_execution_id[0:8] if scheduled_execution_id else None
-        self.throttled_log_call_count = dict()
+        self.scheduled_execution_id: str = (
+            scheduled_execution_id[:8] if scheduled_execution_id else None
+        )
+
+        self.throttled_log_call_count = {}
 
     def error(self, *args):
         self.log("ERROR", *args)
@@ -105,8 +107,7 @@ class LoggingContext:
         context_strings = []
         if self.scheduled_execution_id:
             context_strings.append(f"[{self.scheduled_execution_id}]")
-        for arg in args[:-1]:
-            context_strings.append(f"[{arg}]")
+        context_strings.extend(f"[{arg}]" for arg in args[:-1])
         context_section = " ".join(context_strings)
 
         print(f"{timestamp_utc_iso} {context_section} : {message}")

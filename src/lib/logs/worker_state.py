@@ -63,7 +63,7 @@ class WorkerState:
 
     @property
     def finished_batch(self):
-        return self.batch + "]"
+        return f"{self.batch}]"
 
     @property
     def finished_batch_bytes_size(self):

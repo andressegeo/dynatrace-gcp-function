@@ -26,7 +26,7 @@ def e2e_test_sample_app(request):
 
     if request_args and 'build_id' in request_args:
         build_id = request_args['build_id']
-    
+
     logging.info(f"TYPE: {deployment_type}, BUILD: {build_id}, INFO: This is sample app")
 
     return "This is sample app"

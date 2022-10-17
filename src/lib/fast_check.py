@@ -116,15 +116,16 @@ async def get_dynatrace_token_metadata(dt_session: ClientSession, context: Loggi
 
 
 def obfuscate_dynatrace_access_key(dynatrace_access_key: str):
-    if len(dynatrace_access_key) >= 7:
-        is_new_token = dynatrace_access_key.startswith("dt0c01.") and len(dynatrace_access_key) == 96
-        if is_new_token:
-            # characters between dots are the public part of the token
-            return 'dt0c01.' + dynatrace_access_key.split('.')[1]
-        else:
-            return dynatrace_access_key[:3] + '*' * (len(dynatrace_access_key) - 6) + dynatrace_access_key[-3:]
-    else:
+    if len(dynatrace_access_key) < 7:
         return "Invalid Token"
+    is_new_token = dynatrace_access_key.startswith("dt0c01.") and len(dynatrace_access_key) == 96
+    return (
+        'dt0c01.' + dynatrace_access_key.split('.')[1]
+        if is_new_token
+        else dynatrace_access_key[:3]
+        + '*' * (len(dynatrace_access_key) - 6)
+        + dynatrace_access_key[-3:]
+    )
 
 
 async def check_dynatrace(logging_context: LoggingContext, project_id, dt_session: ClientSession, dynatrace_url, dynatrace_access_key):
@@ -185,7 +186,7 @@ class MetricsFastCheck:
     async def _check_services(self, project_id):
         list_services_result = await self.list_services(project_id)
         service_names = [find_service_name(service['name']) for service in list_services_result]
-        if not all(name in service_names for name in REQUIRED_SERVICES):
+        if any(name not in service_names for name in REQUIRED_SERVICES):
             self.logging_context.log(f'Cannot monitor project: \'{project_id}\'. '
                                      f'Enable required services: {REQUIRED_SERVICES}')
             return None

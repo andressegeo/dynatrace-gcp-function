@@ -54,7 +54,10 @@ async def metrics_pre_launch_check() -> Optional[PreLaunchCheckResult]:
     async with init_gcp_client_session() as gcp_session, init_dt_client_session() as dt_session:
         token = await create_token(logging_context, gcp_session)
         if not token:
-            logging_context.log(f'Monitoring disabled. Unable to acquire authorization token.')
+            logging_context.log(
+                'Monitoring disabled. Unable to acquire authorization token.'
+            )
+
         fast_check_result = await metrics_initial_check(gcp_session, dt_session, token) if token else None
         extensions_fetch_result = await extensions_fetch(gcp_session, dt_session, token) if fast_check_result else None
     return PreLaunchCheckResult(projects=fast_check_result.projects,
@@ -99,7 +102,10 @@ async def run_instance_metadata_check() -> Optional[InstanceMetadata]:
         if token:
             return await InstanceMetadataCheck(gcp_session, token, logging_context).execute()
         else:
-            logging_context.log(f'Instance metadata check skipped. Unable to acquire authorization token.')
+            logging_context.log(
+                'Instance metadata check skipped. Unable to acquire authorization token.'
+            )
+
 
     return None
 
@@ -122,8 +128,9 @@ async def health(request):
 
 
 def run_metrics():
-    pre_launch_check_result = loop.run_until_complete(metrics_pre_launch_check())
-    if pre_launch_check_result:
+    if pre_launch_check_result := loop.run_until_complete(
+        metrics_pre_launch_check()
+    ):
         loop.create_task(scheduling_loop(pre_launch_check_result))
         run_loop_forever()
 

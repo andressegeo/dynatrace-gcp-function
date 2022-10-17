@@ -21,7 +21,7 @@ from lib.logs.metadata_engine import ATTRIBUTE_CONTENT
 from unit.extraction_rules.common import TEST_LOGS_PROCESSING_CONTEXT
 
 MonkeyPatchFixture = NewType("MonkeyPatchFixture", Any)
-timestamp = datetime.utcnow().isoformat() + "Z"
+timestamp = f"{datetime.utcnow().isoformat()}Z"
 log_message = "WALTHAM, Mass.--(BUSINESS WIRE)-- Software intelligence company Dynatrace (NYSE: DT)"
 
 test_record = {

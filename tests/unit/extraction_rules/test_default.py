@@ -23,7 +23,7 @@ from unit.extraction_rules.common import TEST_LOGS_PROCESSING_CONTEXT
 
 MonkeyPatchFixture = NewType("MonkeyPatchFixture", Any)
 
-timestamp = datetime.utcnow().isoformat() + "Z"
+timestamp = f"{datetime.utcnow().isoformat()}Z"
 
 record = {
     "insertId": "6075332400049b1f937691ca",

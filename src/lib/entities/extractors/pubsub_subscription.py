@@ -38,11 +38,10 @@ def _extract_label(gfun_name: Text, group_index: int) -> Text:
     if (group_index < 0) or (group_index > 2):
         raise ValueError("Expected group_index <0,2>")
 
-    match = export_labels_regex.match(gfun_name)
-    if not match:
+    if match := export_labels_regex.match(gfun_name):
+        return match.group(group_index)
+    else:
         raise ValueError("Pubsub name should adhere to expected schema")
-
-    return match.group(group_index)
 
 
 LabelToApiResponseMapping: LabelToApiRspMapping = {

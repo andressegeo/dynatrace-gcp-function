@@ -21,7 +21,7 @@ from lib.logs.metadata_engine import ATTRIBUTE_GCP_PROJECT_ID, ATTRIBUTE_GCP_RES
     ATTRIBUTE_AUDIT_RESULT
 from unit.extraction_rules.common import TEST_LOGS_PROCESSING_CONTEXT
 
-timestamp = datetime.utcnow().isoformat() + "Z"
+timestamp = f"{datetime.utcnow().isoformat()}Z"
 
 debug_text_record = {
     "insertId": "000000-34c62aef-5df9-4f63-b692-a92f64febd2c",

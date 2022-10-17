@@ -28,8 +28,7 @@ class MappingCustomFunctions(functions.Functions):
         # replace java capture group sign ($) to python one (\)
         processed_replacement = re.sub(r'\$(\d+)+', '\\\\\\1', replacement)
         compiled_regex = re.compile(regex)
-        result = compiled_regex.sub(processed_replacement, subject)
-        return result
+        return compiled_regex.sub(processed_replacement, subject)
 
     @functions.signature({'types': []},
                          {'types': ['expref']},
@@ -63,10 +62,11 @@ class MappingCustomFunctions(functions.Functions):
 
     @functions.signature({'types': []})
     def _func_status_from_proto_code(self, proto_code):
-        if not proto_code:
-            return "Succeeded"
-        else:
-            return "Failed." + self.proto_error_code_to_string_dict.get(proto_code, "")
+        return (
+            "Failed." + self.proto_error_code_to_string_dict.get(proto_code, "")
+            if proto_code
+            else "Succeeded"
+        )
 
 
 JMESPATH_OPTIONS = jmespath.Options(custom_functions=MappingCustomFunctions())

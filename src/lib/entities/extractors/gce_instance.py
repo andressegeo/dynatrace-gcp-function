@@ -41,11 +41,10 @@ def _extract_label(gfun_name: Text, group_index: int) -> Text:
     if (group_index < 0) or (group_index > 2):
         raise ValueError("Expected group_index <0,2>")
 
-    match = export_labels_regex.match(gfun_name)
-    if not match:
+    if match := export_labels_regex.match(gfun_name):
+        return match.group(group_index)
+    else:
         raise ValueError("Pubsub name should adhere to expected schema")
-
-    return match.group(group_index)
 
 
 LabelToApiResponseMapping: LabelToApiRspMapping = {
@@ -74,7 +73,7 @@ def _cloud_function_resp_to_monitored_entities(page: Dict[Text, Any], svc_def: G
     if not items:
         return []
 
-    page_id = page.get("id", None)
+    page_id = page.get("id")
     if page_id is None:
         return []
     project_id = _extract_label(page_id, 1)

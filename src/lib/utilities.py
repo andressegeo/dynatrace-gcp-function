@@ -45,8 +45,11 @@ def load_activated_feature_sets(logging_context: LoggingContext, activation_yaml
     services_whitelist = []
     for service in activation_yaml.get("services", []):
         feature_sets = service.get("featureSets", [])
-        for feature_set in feature_sets:
-            services_whitelist.append(f"{service.get('service')}/{feature_set}")
+        services_whitelist.extend(
+            f"{service.get('service')}/{feature_set}"
+            for feature_set in feature_sets
+        )
+
         if not feature_sets:
             logging_context.error(f"No feature set in given {service} service.")
 

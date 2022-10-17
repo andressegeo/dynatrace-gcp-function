@@ -33,7 +33,7 @@ _MONITORING_ROOT = "https://monitoring.googleapis.com/v3"
 
 async def push_ingest_lines(context: MetricsContext, project_id: str, fetch_metric_results: List[IngestLine]):
     if context.dynatrace_connectivity != DynatraceConnectivity.Ok:
-        context.log(project_id, f"Skipping push due to detected connectivity error")
+        context.log(project_id, "Skipping push due to detected connectivity error")
         return
 
     if not fetch_metric_results:
@@ -91,7 +91,7 @@ async def _push_to_dynatrace(context: MetricsContext, project_id: str, lines_bat
     elif ingest_response.status == 403:
         context.dynatrace_connectivity = DynatraceConnectivity.WrongToken
         raise Exception("Wrong token - missing 'Ingest metrics using API V2' permission")
-    elif ingest_response.status == 404 or ingest_response.status == 405:
+    elif ingest_response.status in [404, 405]:
         context.dynatrace_connectivity = DynatraceConnectivity.WrongURL
         raise Exception(f"Wrong URL {dt_url}")
 
@@ -111,8 +111,7 @@ async def log_invalid_lines(context: MetricsContext, ingest_response_json: Dict,
     if error is None:
         return
 
-    invalid_lines = error.get("invalidLines", [])
-    if invalid_lines:
+    if invalid_lines := error.get("invalidLines", []):
         for invalid_line_error_message in invalid_lines:
             line_index = invalid_line_error_message.get("line", 0) - 1
             if line_index > -1:
@@ -134,8 +133,7 @@ class DtDimensionsMap:
         # report it to Dt under dt_label_if_unmapped - this is expected to be last part for full source dimension label, e.g.:
         # resource.label.unrequestedDimensionLabel > unrequestedDimensionLabel
         dt_dimensions_set = self.dt_dimensions_set_by_source_dimension.get(source_dimension, {dt_dimension_if_unmapped})
-        dt_dimension_sorted_list = sorted(dt_dimensions_set)
-        return dt_dimension_sorted_list
+        return sorted(dt_dimensions_set)
 
 async def fetch_metric(
         context: MetricsContext,
@@ -155,13 +153,20 @@ async def fetch_metric(
         aligner = 'ALIGN_DELTA'
 
     params = [
-        ('filter', f'metric.type = "{metric.google_metric}" {service.monitoring_filter}'.strip()),
-        ('interval.startTime', start_time.isoformat() + "Z"),
-        ('interval.endTime', end_time.isoformat() + "Z"),
-        ('aggregation.alignmentPeriod', f"{metric.sample_period_seconds.total_seconds()}s"),
+        (
+            'filter',
+            f'metric.type = "{metric.google_metric}" {service.monitoring_filter}'.strip(),
+        ),
+        ('interval.startTime', f"{start_time.isoformat()}Z"),
+        ('interval.endTime', f"{end_time.isoformat()}Z"),
+        (
+            'aggregation.alignmentPeriod',
+            f"{metric.sample_period_seconds.total_seconds()}s",
+        ),
         ('aggregation.perSeriesAligner', aligner),
-        ('aggregation.crossSeriesReducer', reducer)
+        ('aggregation.crossSeriesReducer', reducer),
     ]
+
 
     all_dimensions = (service.dimensions + metric.dimensions)
     dt_dimensions_mapping = DtDimensionsMap()
@@ -194,12 +199,12 @@ async def fetch_metric(
             entity_id = create_entity_id(service, time_serie)
 
             for point in time_serie['points']:
-                line = convert_point_to_ingest_line(dimensions, metric, point, typed_value_key, entity_id)
-                if line:
+                if line := convert_point_to_ingest_line(
+                    dimensions, metric, point, typed_value_key, entity_id
+                ):
                     lines.append(line)
 
-        next_page_token = page.get('nextPageToken', None)
-        if next_page_token:
+        if next_page_token := page.get('nextPageToken', None):
             update_params(next_page_token, params)
         else:
             should_fetch = False
@@ -208,11 +213,15 @@ async def fetch_metric(
 
 
 def update_params(next_page_token, params):
-    replace_index = -1
-    for index, param in enumerate(params):
-        if param[0] == 'pageToken':
-            replace_index = index
-            break
+    replace_index = next(
+        (
+            index
+            for index, param in enumerate(params)
+            if param[0] == 'pageToken'
+        ),
+        -1,
+    )
+
     next_page_token_tuple = ('pageToken', next_page_token)
     if replace_index > -1:
         params[replace_index] = next_page_token_tuple
@@ -243,28 +252,31 @@ def create_dimension(name: str, value: Any, context: LoggingContext = LoggingCon
 
 
 def create_dimensions(context: MetricsContext, service_name: str, time_serie: Dict, dt_dimensions_mapping: DtDimensionsMap) -> List[DimensionValue]:
-    dt_dimensions = []
-
-    #"gcp.resource.type" is required to easily differentiate services with the same metric set e.g. internal_tcp_lb_rule and internal_udp_lb_rule
-    dt_dimensions.append(create_dimension("gcp.resource.type", service_name, context))
+    dt_dimensions = [create_dimension("gcp.resource.type", service_name, context)]
 
     metric_labels = time_serie.get('metric', {}).get('labels', {})
     for short_source_label, dim_value in metric_labels.items():
         mapped_dt_dim_labels = dt_dimensions_mapping.get_dt_dimensions(f"metric.labels.{short_source_label}", short_source_label)
-        for dt_dim_label in mapped_dt_dim_labels:
-            dt_dimensions.append( create_dimension(dt_dim_label, dim_value, context) )
+        dt_dimensions.extend(
+            create_dimension(dt_dim_label, dim_value, context)
+            for dt_dim_label in mapped_dt_dim_labels
+        )
 
     resource_labels = time_serie.get('resource', {}).get('labels', {})
     for short_source_label, dim_value in resource_labels.items():
         mapped_dt_dim_labels = dt_dimensions_mapping.get_dt_dimensions(f"resource.labels.{short_source_label}", short_source_label)
-        for dt_dim_label in mapped_dt_dim_labels:
-            dt_dimensions.append( create_dimension(dt_dim_label, dim_value, context) )
+        dt_dimensions.extend(
+            create_dimension(dt_dim_label, dim_value, context)
+            for dt_dim_label in mapped_dt_dim_labels
+        )
 
     system_labels = time_serie.get('metadata', {}).get('systemLabels', {})
     for short_source_label, dim_value in system_labels.items():
         mapped_dt_dim_labels = dt_dimensions_mapping.get_dt_dimensions(f"metadata.systemLabels.{short_source_label}", short_source_label)
-        for dt_dim_label in mapped_dt_dim_labels:
-            dt_dimensions.append( create_dimension(dt_dim_label, dim_value, context) )
+        dt_dimensions.extend(
+            create_dimension(dt_dim_label, dim_value, context)
+            for dt_dim_label in mapped_dt_dim_labels
+        )
 
     return dt_dimensions
 
@@ -278,22 +290,23 @@ def flatten_and_enrich_metric_results(
     entity_dimension_prefix = "entity."
     for ingest_lines in fetch_metric_results:
         for ingest_line in ingest_lines:
-            entity = entity_id_map.get(ingest_line.entity_id, None)
-            if entity:
+            if entity := entity_id_map.get(ingest_line.entity_id, None):
                 if entity.dns_names:
                     dimension_value = create_dimension(
-                        name=entity_dimension_prefix + "dns_name",
+                        name=f"{entity_dimension_prefix}dns_name",
                         value=entity.dns_names[0],
-                        context=context
+                        context=context,
                     )
+
                     ingest_line.dimension_values.append(dimension_value)
 
                 if entity.ip_addresses:
                     dimension_value = create_dimension(
-                        name=entity_dimension_prefix + "ip_address",
+                        name=f"{entity_dimension_prefix}ip_address",
                         value=entity.ip_addresses[0],
-                        context=context
+                        context=context,
                     )
+
                     ingest_line.dimension_values.append(dimension_value)
 
                 for cd_property in entity.properties:
@@ -316,11 +329,9 @@ def create_entity_id(service: GCPService, time_serie):
     for dimension in service.dimensions:
         key = dimension.key_for_create_entity_id
 
-        dimension_value = resource_labels.get(key)
-        if dimension_value:
+        if dimension_value := resource_labels.get(key):
             parts.append(dimension_value)
-    entity_id = _create_mmh3_hash(parts)
-    return entity_id
+    return _create_mmh3_hash(parts)
 
 
 def convert_point_to_ingest_line(
@@ -340,18 +351,18 @@ def convert_point_to_ingest_line(
 
     timestamp_datetime = timestamp_parsed.replace(tzinfo=timezone.utc)
     timestamp = int(timestamp_datetime.timestamp() * 1000)
-    value = extract_value(point, typed_value_key, metric)
-    line = None
-    if value:
-        line = IngestLine(
+    return (
+        IngestLine(
             entity_id=entity_id,
             metric_name=metric.dynatrace_name,
             metric_type=metric.dynatrace_metric_type,
             value=value,
             timestamp=timestamp,
-            dimension_values=dimensions.copy()
+            dimension_values=dimensions.copy(),
         )
-    return line
+        if (value := extract_value(point, typed_value_key, metric))
+        else None
+    )
 
 
 def gauge_line(min, max, count, sum) -> str:
@@ -376,7 +387,7 @@ def extract_value(point, typed_value_key: str, metric: Metric):
             max = 0
 
         # No point in calculating min and max from distribution here
-        if count == 1 or count == 2:
+        if count in {1, 2}:
             return gauge_line(min, max, count, sum)
 
         bucket_options = value['bucketOptions']
@@ -384,11 +395,14 @@ def extract_value(point, typed_value_key: str, metric: Metric):
         bucket_counts_length = len(bucket_counts)
 
         max_bucket = bucket_counts_length - 1
-        min_bucket = max_bucket
-        for index, bucket_count in enumerate(bucket_counts):
-            if bucket_count > 0:
-                min_bucket = index
-                break
+        min_bucket = next(
+            (
+                index
+                for index, bucket_count in enumerate(bucket_counts)
+                if bucket_count > 0
+            ),
+            max_bucket,
+        )
 
         # https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TypedValue#exponential
         if 'exponentialBuckets' in bucket_options:

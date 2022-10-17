@@ -45,14 +45,10 @@ MonkeyPatchFixture = NewType("MonkeyPatchFixture", Any)
 system_variables = {
     'DYNATRACE_LOG_INGEST_CONTENT_MAX_LENGTH': str(800),
     'DYNATRACE_LOG_INGEST_REQUEST_MAX_SIZE': str(5 * 1024),
-    'DYNATRACE_LOG_INGEST_URL': 'http://localhost:' + str(MOCKED_API_PORT),
+    'DYNATRACE_LOG_INGEST_URL': f'http://localhost:{MOCKED_API_PORT}',
     'DYNATRACE_ACCESS_KEY': ACCESS_KEY,
     'REQUIRE_VALID_CERTIFICATE': 'False',
-    'GCP_PROJECT': 'dynatrace-gcp-extension'
-    # Set below-mentioned environment variables to push custom metrics to GCP Monitor
-    # 'SELF_MONITORING_ENABLED': 'True',
-    # 'GOOGLE_APPLICATION_CREDENTIALS': '',
-    # 'LOGS_SUBSCRIPTION_ID': ''
+    'GCP_PROJECT': 'dynatrace-gcp-extension',
 }
 
 
@@ -61,7 +57,7 @@ def setup_wiremock():
     # setup WireMock server
     wiremock = WireMockServer(port=MOCKED_API_PORT)
     wiremock.start()
-    Config.base_url = 'http://localhost:{}/__admin'.format(MOCKED_API_PORT)
+    Config.base_url = f'http://localhost:{MOCKED_API_PORT}/__admin'
 
     # run test
     yield
@@ -88,19 +84,22 @@ def setup_env(monkeypatch):
 
 
 def response(status: int, status_message: str):
-    Mappings.create_mapping(mapping=Mapping(
-        priority=100,
-        request=MappingRequest(
-            method=HttpMethods.POST,
-            url='/api/v2/logs/ingest',
-            headers={'Authorization': {'equalTo': "Api-Token {}".format(ACCESS_KEY)}},
-        ),
-        response=MappingResponse(
-            status=status,
-            status_message=status_message
-        ),
-        persistent=False
-    ))
+    Mappings.create_mapping(
+        mapping=Mapping(
+            priority=100,
+            request=MappingRequest(
+                method=HttpMethods.POST,
+                url='/api/v2/logs/ingest',
+                headers={
+                    'Authorization': {'equalTo': f"Api-Token {ACCESS_KEY}"}
+                },
+            ),
+            response=MappingResponse(
+                status=status, status_message=status_message
+            ),
+            persistent=False,
+        )
+    )
 
 
 class MockSubscriberClient:
@@ -108,7 +107,7 @@ class MockSubscriberClient:
     ack_queue: Queue
 
     def __init__(self, ack_queue: Queue, messages: List[ReceivedMessage] = None):
-        self.received_messages = messages if messages else []
+        self.received_messages = messages or []
         self.ack_queue = ack_queue
 
     def add_message(self, message: ReceivedMessage):
@@ -136,7 +135,7 @@ async def test_execution_successful():
     message_data_json = load_json_with_fresh_timestamp()
     fresh_message_data = json.dumps(message_data_json)
 
-    expected_ack_ids = [f"ACK_ID_{i}" for i in range(0, 10)]
+    expected_ack_ids = [f"ACK_ID_{i}" for i in range(10)]
     messages = [
         create_fake_message(ack_id=ack_id, message_data=fresh_message_data)
         for ack_id
@@ -300,9 +299,9 @@ async def test_execution_expired_token():
 
     messages = [
         create_fake_message(ack_id=ack_id, message_data=fresh_message_data)
-        for ack_id
-        in [f"ACK_ID_{i}" for i in range(0, 10)]
+        for ack_id in [f"ACK_ID_{i}" for i in range(10)]
     ]
+
 
     self_monitoring = await run_worker_with_messages(messages, [])
 
@@ -349,14 +348,14 @@ async def run_worker_with_messages(
         assert ack_id in expected_ack_ids
         expected_ack_ids.remove(ack_id)
 
-    assert len(expected_ack_ids) == 0
+    assert not expected_ack_ids
 
     return self_monitoring
 
 
 def load_json_with_fresh_timestamp() -> Dict:
     message_data_json = json.loads(LOG_MESSAGE_DATA)
-    message_data_json["timestamp"] = datetime.utcnow().isoformat() + "Z"
+    message_data_json["timestamp"] = f"{datetime.utcnow().isoformat()}Z"
     return message_data_json
 
 

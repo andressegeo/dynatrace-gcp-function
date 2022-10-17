@@ -55,10 +55,16 @@ def _process_message(sfm_queue: Queue, message: ReceivedMessage) -> Optional[Log
         if not context:
             context = LogsProcessingContext(None, None, sfm_queue)
         if isinstance(exception, queue.Full):
-            context.error(f"Failed to process message due full job queue, rejecting the message")
+            context.error(
+                "Failed to process message due full job queue, rejecting the message"
+            )
+
         else:
             if isinstance(exception, UnicodeDecodeError):
-                context.error(f"Failed to process message due to message data not being valid UTF-8. Binary data is not supported")
+                context.error(
+                    "Failed to process message due to message data not being valid UTF-8. Binary data is not supported"
+                )
+
             else:
                 context.t_exception(f"Failed to process message due to {type(exception).__name__}")
             context.self_monitoring.parsing_errors += 1
@@ -76,12 +82,10 @@ def _do_process_message(context: LogsProcessingContext, message: PubsubMessage) 
     # context.log(f"Payload: {payload}")
     context.self_monitoring.calculate_processing_time()
 
-    if not payload:
-        put_sfm_into_queue(context)
-        return None
-    else:
-        job = LogProcessingJob(json.dumps(payload), context.self_monitoring)
-        return job
+    if payload:
+        return LogProcessingJob(json.dumps(payload), context.self_monitoring)
+    put_sfm_into_queue(context)
+    return None
 
 
 def _create_dt_log_payload(context: LogsProcessingContext, message_data: str) -> Optional[Dict]:
@@ -104,8 +108,7 @@ def _create_dt_log_payload(context: LogsProcessingContext, message_data: str) ->
                 string_attribute_value = str(attribute_value)
             parsed_record[attribute_key] = string_attribute_value[: ATTRIBUTE_VALUE_LENGTH_LIMIT]
 
-    content = parsed_record.get(ATTRIBUTE_CONTENT, None)
-    if content:
+    if content := parsed_record.get(ATTRIBUTE_CONTENT, None):
         if not isinstance(content, str):
             parsed_record[ATTRIBUTE_CONTENT] = json.dumps(parsed_record[ATTRIBUTE_CONTENT])
         if len(parsed_record[ATTRIBUTE_CONTENT]) > CONTENT_LENGTH_LIMIT:
@@ -138,7 +141,11 @@ def _create_parsed_record(context: LogsProcessingContext, message_data: str):
 
 def _set_cloud_log_forwarder(parsed_record):
     cloud_log_forwarder = (
-                CLOUD_LOG_FORWARDER + "/pods/" + CLOUD_LOG_FORWARDER_POD) if CLOUD_LOG_FORWARDER and CLOUD_LOG_FORWARDER_POD else CLOUD_LOG_FORWARDER
+        f"{CLOUD_LOG_FORWARDER}/pods/{CLOUD_LOG_FORWARDER_POD}"
+        if CLOUD_LOG_FORWARDER and CLOUD_LOG_FORWARDER_POD
+        else CLOUD_LOG_FORWARDER
+    )
+
     if cloud_log_forwarder:
         parsed_record["cloud.log_forwarder"] = cloud_log_forwarder
 

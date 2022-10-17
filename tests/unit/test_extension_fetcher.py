@@ -60,12 +60,16 @@ def mocked_get(url: str, headers={}, params={}, verify_ssl=False):
     returned_future = asyncio.Future()
     if url == "/api/v2/extensions":
         returned_future.set_result(Response())
+    elif name_version_searcher := re.search("/api/v2/extensions/(.+)/(.+)", url):
+        returned_future.set_result(
+            Response(
+                extension_name=name_version_searcher[1],
+                version=name_version_searcher[2],
+            )
+        )
+
     else:
-        name_version_searcher = re.search("/api/v2/extensions/(.+)/(.+)", url)
-        if name_version_searcher:
-            returned_future.set_result(Response(extension_name=name_version_searcher.group(1), version=name_version_searcher.group(2)))
-        else:
-            returned_future.set_result(None)
+        returned_future.set_result(None)
     return returned_future
 
 

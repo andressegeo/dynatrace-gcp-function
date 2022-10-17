@@ -21,7 +21,7 @@ from lib.self_monitoring import batch_time_series
 
 context = LogsSfmContext("project_id", "http://localhost:9011", "dynatrace-gcp-log-forwarder-sub", "token", "", Queue(),
                          True, None, "container_name", "us-east1")
-end_time = context.timestamp.isoformat() + "Z"
+end_time = f"{context.timestamp.isoformat()}Z"
 
 expected_metric_data = {
     "timeSeries": [

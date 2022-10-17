@@ -20,7 +20,7 @@ from lib.logs.metadata_engine import ATTRIBUTE_GCP_PROJECT_ID, ATTRIBUTE_GCP_RES
     ATTRIBUTE_CONTENT, ATTRIBUTE_TIMESTAMP, ATTRIBUTE_DT_LOGPATH, ATTRIBUTE_GCP_INSTANCE_ID
 from unit.extraction_rules.common import TEST_LOGS_PROCESSING_CONTEXT
 
-timestamp = datetime.utcnow().isoformat() + "Z"
+timestamp = f"{datetime.utcnow().isoformat()}Z"
 
 log_record = {
   "textPayload": "ON DUPLICATE KEY UPDATE master_time=UTC_TIMESTAMP(6);",
