@@ -24,7 +24,7 @@ from aiohttp import ClientSession
 
 from lib.context import LoggingContext
 
-METADATA_URL = f'http://metadata.google.internal/computeMetadata/v1/'
+METADATA_URL = 'http://metadata.google.internal/computeMetadata/v1/'
 
 InstanceMetadata = namedtuple('InstanceMetadata', [
     'project_id',
@@ -80,34 +80,35 @@ class InstanceMetadataCheck:
         return await self._get_metadata('instance/zone')
 
     async def execute(self) -> Optional[InstanceMetadata]:
-        if self._gcp_deployment():
-            metadata = [
-                self.project_id(),
-                self.running_container(),
-                self.token_scopes(),
-                self.service_accounts(),
-                self.audience(),
-                self.zone()
-            ]
+        if not self._gcp_deployment():
+            return
+        metadata = [
+            self.project_id(),
+            self.running_container(),
+            self.token_scopes(),
+            self.service_accounts(),
+            self.audience(),
+            self.zone()
+        ]
 
-            results = await asyncio.gather(*metadata, return_exceptions=True)
+        results = await asyncio.gather(*metadata, return_exceptions=True)
 
-            if not all(result is None for result in results):
-                audience = jwt.decode(results[4], verify=False) if results[4] else ''
-                # zone = "projects/<projectID>/zones/us-central1-c"
-                zone = results[5].split("/")[-1] if results[5] else "us-east1"
-                metadata = InstanceMetadata(
-                    project_id=results[0],
-                    container_name=results[1],
-                    token_scopes=results[2],
-                    service_account=results[3],
-                    audience=audience,
-                    hostname=os.environ.get("HOSTNAME", ""),
-                    zone=zone
-                )
-                self.logging_context.log(f'GCP instance metadata: {metadata}')
-                return metadata
-            return None
+        if any(result is not None for result in results):
+            audience = jwt.decode(results[4], verify=False) if results[4] else ''
+            # zone = "projects/<projectID>/zones/us-central1-c"
+            zone = results[5].split("/")[-1] if results[5] else "us-east1"
+            metadata = InstanceMetadata(
+                project_id=results[0],
+                container_name=results[1],
+                token_scopes=results[2],
+                service_account=results[3],
+                audience=audience,
+                hostname=os.environ.get("HOSTNAME", ""),
+                zone=zone
+            )
+            self.logging_context.log(f'GCP instance metadata: {metadata}')
+            return metadata
+        return None
 
     def _gcp_deployment(self):
         try:

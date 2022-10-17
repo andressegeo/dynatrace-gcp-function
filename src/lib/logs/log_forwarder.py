@@ -61,7 +61,7 @@ def run_logs(logging_context: LoggingContext, instance_metadata: InstanceMetadat
     asyncio.run_coroutine_threadsafe(create_sfm_worker_loop(sfm_queue, logging_context, instance_metadata),
                                      asyncio_loop)
 
-    for i in range(0, PROCESSING_WORKERS):
+    for i in range(PROCESSING_WORKERS):
         threading.Thread(target=partial(run_ack_logs, f"Worker-{i}", sfm_queue), name=f"worker-{i}").start()
 
 
@@ -69,7 +69,7 @@ def run_ack_logs(worker_name: str, sfm_queue: Queue):
     logging_context = LoggingContext(worker_name)
     subscriber_client = pubsub.SubscriberClient()
     subscription_path = subscriber_client.subscription_path(LOGS_SUBSCRIPTION_PROJECT, LOGS_SUBSCRIPTION_ID)
-    logging_context.log(f"Starting processing")
+    logging_context.log("Starting processing")
 
     worker_state = WorkerState(worker_name)
     while True:

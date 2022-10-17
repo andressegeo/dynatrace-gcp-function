@@ -56,8 +56,7 @@ def get_dynatrace_log_ingest_url_from_env():
 
 
 async def fetch_secret(session: ClientSession, project_id: str, token: str, secret_name: str):
-    env_secret_value = os.environ.get(secret_name, None)
-    if env_secret_value:
+    if env_secret_value := os.environ.get(secret_name, None):
         return env_secret_value
 
     url = _SECRET_ROOT + "/projects/{project_id}/secrets/{secret_name}/versions/latest:access" \
@@ -137,10 +136,10 @@ async def get_token(key: str, service: str, uri: str, session: ClientSession):
 
 
 async def get_all_accessible_projects(context: LoggingContext, session: ClientSession, token: str):
-    url = _CLOUD_RESOURCE_MANAGER_ROOT + "/projects?filter=lifecycleState%3AACTIVE"
+    url = f"{_CLOUD_RESOURCE_MANAGER_ROOT}/projects?filter=lifecycleState%3AACTIVE"
     headers = {"Authorization": "Bearer {token}".format(token=token)}
-    all_projects = [] 
-    page_token = "" 
+    all_projects = []
+    page_token = ""
     next_page_url_suffix = "" 
 
     while True: 
@@ -148,7 +147,7 @@ async def get_all_accessible_projects(context: LoggingContext, session: ClientSe
         response_json = await response.json()
         all_projects.extend([project["projectId"] for project in response_json.get("projects", [])])
         page_token = response_json.get("nextPageToken", "")
-        next_page_url_suffix = "&pageToken=" + page_token
+        next_page_url_suffix = f"&pageToken={page_token}"
         if(page_token == ""):
             break
 

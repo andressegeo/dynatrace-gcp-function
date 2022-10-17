@@ -45,7 +45,7 @@ class IngestLine:
                             if dimension_value.value != ""]  # MINT rejects line with empty dimension value
         dimensions = ",".join(dimension_values)
         if dimensions:
-            dimensions = "," + dimensions
+            dimensions = f",{dimensions}"
         return dimensions
 
     def to_string(self) -> str:
@@ -101,14 +101,12 @@ class Metric:
 
         object.__setattr__(self, "dimensions", [Dimension(**x) for x in kwargs.get("dimensions", {})])
 
-        ingest_delay = kwargs.get("gcpOptions", {}).get("ingestDelay", None)
-        if ingest_delay:
+        if ingest_delay := kwargs.get("gcpOptions", {}).get("ingestDelay", None):
             object.__setattr__(self, "ingest_delay", timedelta(seconds=ingest_delay))
         else:
             object.__setattr__(self, "ingest_delay", timedelta(seconds=60))
 
-        sps = kwargs.get("gcpOptions", {}).get("samplePeriod", None)
-        if sps:
+        if sps := kwargs.get("gcpOptions", {}).get("samplePeriod", None):
             object.__setattr__(self, "sample_period_seconds", timedelta(seconds=sps))
         else:
             object.__setattr__(self, "sample_period_seconds", timedelta(seconds=60))

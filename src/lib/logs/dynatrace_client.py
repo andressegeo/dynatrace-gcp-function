@@ -38,7 +38,10 @@ def send_logs(context: LogsContext, logs: List[LogProcessingJob], batch: str):
     # pylint: disable=R0912
     context.self_monitoring = aggregate_self_monitoring_metrics(LogSelfMonitoring(), [log.self_monitoring for log in logs])
     context.self_monitoring.sending_time_start = time.perf_counter()
-    log_ingest_url = urlparse(context.dynatrace_url + "/api/v2/logs/ingest").geturl()
+    log_ingest_url = urlparse(
+        f"{context.dynatrace_url}/api/v2/logs/ingest"
+    ).geturl()
+
 
     try:
         encoded_body_bytes = batch.encode("UTF-8")
@@ -60,9 +63,9 @@ def send_logs(context: LogsContext, logs: List[LogProcessingJob], batch: str):
                 context.self_monitoring.dynatrace_connectivity.append(DynatraceConnectivity.ExpiredToken)
             elif status == 403:
                 context.self_monitoring.dynatrace_connectivity.append(DynatraceConnectivity.WrongToken)
-            elif status == 404 or status == 405:
+            elif status in [404, 405]:
                 context.self_monitoring.dynatrace_connectivity.append(DynatraceConnectivity.WrongURL)
-            elif status == 413 or status == 429:
+            elif status in [413, 429]:
                 context.self_monitoring.dynatrace_connectivity.append(DynatraceConnectivity.TooManyRequests)
             elif status == 500:
                 context.self_monitoring.dynatrace_connectivity.append(DynatraceConnectivity.Other)

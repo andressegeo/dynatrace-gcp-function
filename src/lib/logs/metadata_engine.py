@@ -188,8 +188,9 @@ def _check_if_rule_applies(rule: ConfigRule, record: Dict, parsed_record: Dict):
 def _apply_rule(context: LoggingContext, rule: ConfigRule, record: Dict, parsed_record: Dict):
     for attribute in rule.attributes:
         try:
-            value = jmespath.search(attribute.pattern, record, JMESPATH_OPTIONS)
-            if value:
+            if value := jmespath.search(
+                attribute.pattern, record, JMESPATH_OPTIONS
+            ):
                 parsed_record[attribute.key] = value
         except Exception:
             context.t_exception(f"Encountered exception when evaluating attribute {attribute} of rule for {rule.entity_type_name}",

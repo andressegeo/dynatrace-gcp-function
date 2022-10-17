@@ -139,9 +139,14 @@ async def handle_event(event: Dict, event_context, projects_ids: Optional[List[s
             disabled_apis = {project_id: await get_all_disabled_apis(context, project_id)}
             if 'monitoring.googleapis.com' in disabled_apis[project_id]:
                 disabled_projects.append(project_id)
-                
+
         if disabled_projects:
-            context.log(f"monitoring.googleapis.com API disabled in the projects: " + ", ".join(disabled_projects) + ", that projects will not be monitored")
+            context.log(
+                "monitoring.googleapis.com API disabled in the projects: "
+                + ", ".join(disabled_projects)
+                + ", that projects will not be monitored"
+            )
+
             for disabled_project in disabled_projects:
                 projects_ids.remove(disabled_project)
 
@@ -171,7 +176,7 @@ async def handle_event(event: Dict, event_context, projects_ids: Optional[List[s
 async def process_project_metrics(context: MetricsContext, project_id: str, services: List[GCPService],
                                   disabled_apis: Set[str]):
     try:
-        context.log(project_id, f"Starting processing...")
+        context.log(project_id, "Starting processing...")
         ingest_lines = await fetch_ingest_lines_task(context, project_id, services, disabled_apis)
         fetch_data_time = time.time() - context.start_processing_timestamp
         context.fetch_gcp_data_execution_time[project_id] = fetch_data_time
@@ -271,8 +276,9 @@ async def fetch_ingest_lines_task(context: MetricsContext, project_id: str, serv
 
     fetch_metric_results = await asyncio.gather(*fetch_metric_tasks, return_exceptions=True)
     entity_id_map = build_entity_id_map(fetch_topology_results)
-    flat_metric_results = flatten_and_enrich_metric_results(context, fetch_metric_results, entity_id_map)
-    return flat_metric_results
+    return flatten_and_enrich_metric_results(
+        context, fetch_metric_results, entity_id_map
+    )
 
 
 def build_entity_id_map(fetch_topology_results: List[List[Entity]]) -> Dict[str, Entity]:
@@ -322,8 +328,9 @@ def load_supported_services(context: LoggingContext) -> List[GCPService]:
         except Exception as error:
             context.log(f"Failed to load configuration file: '{config_file_path}'. Error details: {error}")
             continue
-    featureSets = [f"{service.name}/{service.feature_set}" for service in services]
-    if featureSets:
+    if featureSets := [
+        f"{service.name}/{service.feature_set}" for service in services
+    ]:
         context.log("Selected feature sets: " + ", ".join(featureSets))
     else:
         context.log("Empty feature sets. GCP services not monitored.")
